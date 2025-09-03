@@ -377,18 +377,31 @@ export class ChatComponent implements OnInit, AfterViewChecked {
 
     this.chatService.chat(messageToSend, history)
       .then((response: GenerateContentResponse) => {
+        debugger;
+        var responseFromFunctionCalls = undefined;
         if (response.functionCalls && response.functionCalls.length > 0) {
-          this.toolCallHandler.handleToolCalls(response.functionCalls);
+          responseFromFunctionCalls = this.toolCallHandler.handleToolCalls(response.functionCalls);
+          this.messages.push({
+            role: 'assistant',
+            content: JSON.stringify(response)
+          });
+        
+          this.messages.push({
+            role: 'tool',
+            content: JSON.stringify(responseFromFunctionCalls)
+          });
         }
-
-        const text = typeof (response as any).text === 'function'
+        else {
+          const text = typeof (response as any).text === 'function'
           ? (response as any).text()
           : JSON.stringify(response);
 
-        this.messages.push({
-          role: 'assistant',
-          content: text
-        });
+          this.messages.push({
+            role: 'assistant',
+            content: text
+          });
+        }
+        
       })
       .catch((error: unknown) => {
         console.error('Chat error:', error);
@@ -406,7 +419,6 @@ export class ChatComponent implements OnInit, AfterViewChecked {
     switch (role) {
       case 'user': return 'You';
       case 'assistant': return 'Assistant';
-      case 'system': return 'System';
       case 'tool': return 'Tool';
       default: return role;
     }
