@@ -1,3 +1,17 @@
+# Ignore local config with secrets
+src/app/config.ts
+
+# Node and Angular typical ignores
+node_modules/
+dist/
+tmp/
+*.log
+*.env
+.env*
+.angular/cache/
+.vscode/
+.idea/
+
 # See https://docs.github.com/get-started/getting-started-with-git/ignoring-files for more about ignoring files.
 
 # Compiled output

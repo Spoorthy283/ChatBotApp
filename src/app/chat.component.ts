@@ -3,6 +3,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ChatService } from './chat.service';
 import { ChatMessage } from '../models/ChatMessage';
+import { GenerateContentResponse } from '@google/genai';
+import { ToolCallHandlerService } from './tool-call-handler.service';
 
 @Component({
   selector: 'app-chat',
@@ -341,7 +343,7 @@ export class ChatComponent implements OnInit, AfterViewChecked {
   currentMessage: string = '';
   isLoading: boolean = false;
 
-  constructor(private chatService: ChatService) {}
+  constructor(private chatService: ChatService, private toolCallHandler: ToolCallHandlerService) {}
 
   ngOnInit() {
     // Add welcome message
@@ -373,23 +375,31 @@ export class ChatComponent implements OnInit, AfterViewChecked {
     // Get history (excluding system messages for the API call)
     const history = this.messages.filter(msg => msg.role !== 'system');
 
-    this.chatService.chat(messageToSend, history).subscribe({
-      next: (response) => {
+    this.chatService.chat(messageToSend, history)
+      .then((response: GenerateContentResponse) => {
+        if (response.functionCalls && response.functionCalls.length > 0) {
+          this.toolCallHandler.handleToolCalls(response.functionCalls);
+        }
+
+        const text = typeof (response as any).text === 'function'
+          ? (response as any).text()
+          : JSON.stringify(response);
+
         this.messages.push({
           role: 'assistant',
-          content: response
+          content: text
         });
-        this.isLoading = false;
-      },
-      error: (error) => {
+      })
+      .catch((error: unknown) => {
         console.error('Chat error:', error);
         this.messages.push({
           role: 'assistant',
           content: 'Sorry, I encountered an error. Please try again.'
         });
+      })
+      .finally(() => {
         this.isLoading = false;
-      }
-    });
+      });
   }
 
   getRoleDisplayName(role: string): string {

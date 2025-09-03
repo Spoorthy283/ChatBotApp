@@ -4,6 +4,7 @@ import { map, catchError } from 'rxjs/operators';
 import { ToolCall } from '../models/ToolCall';
 import { ToolResult } from '../models/ToolResult';
 import { PersonRepository } from './person.repository';
+import { FunctionCall } from '@google/genai';
 
 @Injectable({
   providedIn: 'root'
@@ -17,12 +18,11 @@ export class ToolCallHandlerService {
    * @param toolCalls - Array of tool call objects
    * @returns Observable array of tool results
    */
-  handleToolCalls(toolCalls: ToolCall[]): Observable<ToolResult[]> {
+  handleToolCalls(toolCalls: FunctionCall[]): Observable<ToolResult[]> {
     const results: Observable<ToolResult>[] = [];
 
     for (const toolCall of toolCalls) {
-      const toolName = toolCall.function.name;
-      const argumentsStr = toolCall.function.arguments;
+      const toolName = toolCall.name;
       
       console.log(`Tool called: ${toolName}`);
 
@@ -43,14 +43,14 @@ export class ToolCallHandlerService {
         map(result => ({
           role: "tool",
           content: JSON.stringify(result),
-          tool_call_id: toolCall.id.toString()
+          //tool_call_id: toolCall.id.toString()
         } as ToolResult)),
         catchError(error => {
           console.error(`Error executing tool ${toolName}:`, error);
           return of({
             role: "tool",
             content: JSON.stringify({ error: error.message || 'Unknown error' }),
-            tool_call_id: toolCall.id.toString()
+            //tool_call_id: toolCall.id.toString()
           } as ToolResult);
         })
       );
