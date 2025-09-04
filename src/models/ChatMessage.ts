@@ -1,6 +1,6 @@
 export interface ChatMessage {
-  role: 'system' | 'user' | 'assistant' | 'tool';
-  content: string;
+  role: 'system' | 'user' | 'model' | 'tool';
+  parts: { text: string } [];
   tool_call_id?: string;
 }
 

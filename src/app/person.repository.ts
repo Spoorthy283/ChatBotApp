@@ -11,6 +11,7 @@ export class PersonRepository {
   constructor(private http: HttpClient) {}
 
   getPersonList(): Observable<any> {
+    debugger;
     const url = `${this.baseUrl}/list`;
     return this.http.get(url).pipe(
       catchError((error) => {

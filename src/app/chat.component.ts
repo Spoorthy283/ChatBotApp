@@ -5,6 +5,8 @@ import { ChatService } from './chat.service';
 import { ChatMessage } from '../models/ChatMessage';
 import { GenerateContentResponse } from '@google/genai';
 import { ToolCallHandlerService } from './tool-call-handler.service';
+import { signal } from '@angular/core';
+import { forkJoin } from 'rxjs';
 
 @Component({
   selector: 'app-chat',
@@ -23,24 +25,24 @@ import { ToolCallHandlerService } from './tool-call-handler.service';
           class="message"
           [ngClass]="{
             'user-message': message.role === 'user',
-            'assistant-message': message.role === 'assistant',
+            'assistant-message': message.role === 'model',
             'system-message': message.role === 'system',
             'tool-message': message.role === 'tool'
           }"
         >
           <div class="message-avatar">
             <span *ngIf="message.role === 'user'">👤</span>
-            <span *ngIf="message.role === 'assistant'">🤖</span>
+            <span *ngIf="message.role === 'model'">🤖</span>
             <span *ngIf="message.role === 'system'">⚙️</span>
             <span *ngIf="message.role === 'tool'">🔧</span>
           </div>
           <div class="message-content">
             <div class="message-role">{{ getRoleDisplayName(message.role) }}</div>
-            <div class="message-text" [innerHTML]="formatMessage(message.content)"></div>
+            <div class="message-text" [innerHTML]="formatMessage(message.parts)"></div>
           </div>
         </div>
         
-        <div *ngIf="isLoading" class="message assistant-message">
+        <div *ngIf="isLoading()" class="message assistant-message">
           <div class="message-avatar">🤖</div>
           <div class="message-content">
             <div class="message-role">Assistant</div>
@@ -60,18 +62,18 @@ import { ToolCallHandlerService } from './tool-call-handler.service';
               type="text"
               [(ngModel)]="currentMessage"
               placeholder="Type your message here..."
-              [disabled]="isLoading"
+              [disabled]="isLoading()"
               name="messageInput"
               class="message-input"
               (keydown.enter)="sendMessage()"
             />
             <button 
               type="submit" 
-              [disabled]="!currentMessage.trim() || isLoading"
+              [disabled]="!currentMessage.trim() || isLoading()"
               class="send-button"
             >
-              <span *ngIf="!isLoading">Send</span>
-              <span *ngIf="isLoading">Sending...</span>
+              <span *ngIf="!isLoading()">Send</span>
+              <span *ngIf="isLoading()">Sending...</span>
             </button>
           </div>
         </form>
@@ -341,15 +343,15 @@ export class ChatComponent implements OnInit, AfterViewChecked {
 
   messages: ChatMessage[] = [];
   currentMessage: string = '';
-  isLoading: boolean = false;
+  isLoading = signal(false);
 
   constructor(private chatService: ChatService, private toolCallHandler: ToolCallHandlerService) {}
 
   ngOnInit() {
     // Add welcome message
     this.messages.push({
-      role: 'assistant',
-      content: 'Hello! I\'m your AI assistant. I can help you get information about people. Try asking me to "get the list of people" or "show me a person".'
+      role: 'model',
+      parts: [{ text: 'Hello! I\'m your AI assistant. I can help you get information about people. Try asking me to "get the list of people" or "show me a person".' }]     
     });
   }
 
@@ -358,78 +360,111 @@ export class ChatComponent implements OnInit, AfterViewChecked {
   }
 
   sendMessage() {
-    if (!this.currentMessage.trim() || this.isLoading) {
+    if (!this.currentMessage.trim() || this.isLoading()) {
       return;
     }
 
     const userMessage: ChatMessage = {
       role: 'user',
-      content: this.currentMessage.trim()
+      parts: [{ text: this.currentMessage.trim() }] 
     };
 
     this.messages.push(userMessage);
     const messageToSend = this.currentMessage.trim();
     this.currentMessage = '';
-    this.isLoading = true;
+    this.isLoading.set(true);
 
     // Get history (excluding system messages for the API call)
     const history = this.messages.filter(msg => msg.role !== 'system');
-
-    this.chatService.chat(messageToSend, history)
+    const test = true;
+    if(!test) {
+      this.chatService.chat(messageToSend, history)
       .then((response: GenerateContentResponse) => {
-        debugger;
-        var responseFromFunctionCalls = undefined;
         if (response.functionCalls && response.functionCalls.length > 0) {
-          responseFromFunctionCalls = this.toolCallHandler.handleToolCalls(response.functionCalls);
-          this.messages.push({
-            role: 'assistant',
-            content: JSON.stringify(response)
+          const toolObservable = this.toolCallHandler.handleToolCalls(response.functionCalls);
+          toolObservable.subscribe(toolResult => {
+            debugger;
+            
+              this.messages.push({
+                role: 'tool',
+                parts: [
+                  { text: response.text ?? '' },
+                  { text: JSON.stringify(toolResult) }
+                ]
+              });
+           
+          }, error => {
+            this.messages.push({
+              role: 'model',
+              parts: [{ text: 'Error calling tool: ' + error }]
+            });
+          }, () => {
+            this.isLoading.set(false);
           });
-        
+        } else {
           this.messages.push({
-            role: 'tool',
-            content: JSON.stringify(responseFromFunctionCalls)
+            role: 'model',
+            parts: [{ text: response.text ?? 'No response from model.' }]
           });
+          this.isLoading.set(false);
         }
-        else {
-          const text = typeof (response as any).text === 'function'
-          ? (response as any).text()
-          : JSON.stringify(response);
-
-          this.messages.push({
-            role: 'assistant',
-            content: text
-          });
-        }
-        
       })
       .catch((error: unknown) => {
         console.error('Chat error:', error);
         this.messages.push({
-          role: 'assistant',
-          content: 'Sorry, I encountered an error. Please try again.'
+          role: 'model',
+          parts: [{ text: 'Sorry, I encountered an error. Please try again.' }]
         });
-      })
-      .finally(() => {
-        this.isLoading = false;
+        this.isLoading.set(false);
       });
+    }
+    else {
+      debugger;
+      const toolObservable = this.toolCallHandler.handleToolCalls([{name: "get_person_list"}])
+      debugger;
+          toolObservable.subscribe(toolResult => {
+            debugger;
+            
+              this.messages.push({
+                role: 'tool',
+                parts: [
+                  { text:  '' },
+                  { text: JSON.stringify(toolResult) }
+                ]
+              });
+           
+          }, error => {
+            this.messages.push({
+              role: 'model',
+              parts: [{ text: 'Error calling tool: ' + error }]
+            });
+          }, () => {
+            this.isLoading.set(false);
+          });
+    }
+    
   }
 
   getRoleDisplayName(role: string): string {
     switch (role) {
       case 'user': return 'You';
-      case 'assistant': return 'Assistant';
+      case 'model': return 'Model';
       case 'tool': return 'Tool';
       default: return role;
     }
   }
 
-  formatMessage(content: string): string {
+  formatMessage(contents: { text: string }[]): string {
     // Simple formatting - you can enhance this with markdown support
-    return content
-      .replace(/\n/g, '<br>')
-      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-      .replace(/\*(.*?)\*/g, '<em>$1</em>');
+    let formattedContent = "";
+    for (let part of contents) {
+      formattedContent += part.text
+            .replace(/\n/g, '<br>')
+            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+            .replace(/\*(.*?)\*/g, '<em>$1</em>');
+    }
+    
+    return formattedContent;
   }
 
   private scrollToBottom() {

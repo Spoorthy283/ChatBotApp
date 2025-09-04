@@ -30,9 +30,9 @@ export class ChatService {
   chat(message: string, history: ChatMessage[]) {
     // Build messages array with system prompt, history, and new user message
     const messages: ChatMessage[] = [
-      { role: 'system', content: this.systemPrompt },
+      { role: 'user', parts: [{ text: this.systemPrompt }]},
       ...history,
-      { role: 'user', content: message }
+      { role: 'user', parts: [{ text: message }]  }
     ];
 
     console.log('Messages being sent:', messages);
@@ -48,7 +48,7 @@ export class ChatService {
   private processChatWithTools(messages: ChatMessage[]) {
 
     const tools = this.toolsService.getAllTools();
-   
+   debugger;
 
 // Configure the client
     const ai = new GoogleGenAI({
