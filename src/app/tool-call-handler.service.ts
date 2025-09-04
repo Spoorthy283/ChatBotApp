@@ -19,21 +19,18 @@ export class ToolCallHandlerService {
    * @returns Observable array of tool results
    */
   handleToolCalls(toolCalls: FunctionCall[]) {
-  let result$: Observable<any> = of(null);
-    for (const toolCall of toolCalls) {
-      const toolName = toolCall.name;
-      
-      if (toolName === "get_person_list") {
-        result$ = this.personRepository.getPersonList();
-      } else if (toolName === "get_person") {
-        result$ = this.personRepository.getPerson();
-      } else {
-        result$ = of({ error: `Unknown tool: ${toolName}` });
-      }
-    }
-    
-      return result$;
-    
+    let results$: Observable<any>[] = [];
+      for (const toolCall of toolCalls) {
+        const toolName = toolCall.name;
+        
+        if (toolName === "get_person_list") {
+          results$.push(this.personRepository.getPersonList());
+        } else if (toolName === "get_person") {
+          results$.push(this.personRepository.getPerson());
+        } else {
+          results$.push(of({ error: `Unknown tool: ${toolName}` }));
+        }
+      }    
+      return results$;    
   }
-
 }

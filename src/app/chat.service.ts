@@ -13,7 +13,25 @@ import { AppConfig } from './config';
 })
 export class ChatService {
   private readonly apiUrl = 'https://api.openai.com/v1/chat/completions'; // Replace with your LLM API
-  private readonly systemPrompt = "You are a helpful assistant that can help users with various tasks. You have access to tools to get information about people.";
+  private readonly systemPrompt = `You are an expert API developer.
+You are connected to a tool that lets you call APIs.
+Your job is to answer user questions by calling the correct API endpoints
+and returning structured, helpful responses.
+
+RESPONSE STYLE:
+- Always respond like a professional API developer.
+- Be concise and return data in JSON format where possible.
+- Explain your reasoning in natural language only if the user asks for details.
+
+ERROR HANDLING:
+- If the API returns an error, exception, or cannot be reached, respond with:
+  "I don’t have access to that functionality."
+- If the API response is empty, respond with:
+  "No data is currently available."
+
+BEHAVIOR:
+- Never make up data. Always call the API endpoint for answers.
+- If the question is unclear, ask clarifying questions.`;
 
   constructor(
     private http: HttpClient,
@@ -54,6 +72,7 @@ export class ChatService {
     const ai = new GoogleGenAI({
         apiKey: AppConfig.genaiApiKey
     });
+    console.log('Messages being sent:', messages);
     const response = ai.models.generateContent({
         model: AppConfig.genaiModel,
         contents: messages,

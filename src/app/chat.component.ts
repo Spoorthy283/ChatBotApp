@@ -381,15 +381,15 @@ export class ChatComponent implements OnInit, AfterViewChecked {
     .then((response: GenerateContentResponse) => {
       if (response.functionCalls && response.functionCalls.length > 0) 
       {
-        const toolObservable = this.toolCallHandler.handleToolCalls(response.functionCalls);
-        toolObservable.subscribe({
-          next: toolResult => {
+        const toolObservables = this.toolCallHandler.handleToolCalls(response.functionCalls);
+        forkJoin(toolObservables).subscribe({
+          next: toolResults => {
             debugger;
             this.messages.push({
-              role: 'tool',
+              role: 'model',
               parts: [
                 { text: response.text ?? '' },
-                { text: JSON.stringify(toolResult) }
+                { text: JSON.stringify(toolResults) }
               ]
             });
             this.isLoading.set(false);
