@@ -376,72 +376,49 @@ export class ChatComponent implements OnInit, AfterViewChecked {
 
     // Get history (excluding system messages for the API call)
     const history = this.messages.filter(msg => msg.role !== 'system');
-    const test = true;
-    if(!test) {
-      this.chatService.chat(messageToSend, history)
-      .then((response: GenerateContentResponse) => {
-        if (response.functionCalls && response.functionCalls.length > 0) {
-          const toolObservable = this.toolCallHandler.handleToolCalls(response.functionCalls);
-          toolObservable.subscribe(toolResult => {
+
+    this.chatService.chat(messageToSend, history)
+    .then((response: GenerateContentResponse) => {
+      if (response.functionCalls && response.functionCalls.length > 0) 
+      {
+        const toolObservable = this.toolCallHandler.handleToolCalls(response.functionCalls);
+        toolObservable.subscribe({
+          next: toolResult => {
             debugger;
-            
-              this.messages.push({
-                role: 'tool',
-                parts: [
-                  { text: response.text ?? '' },
-                  { text: JSON.stringify(toolResult) }
-                ]
-              });
-           
-          }, error => {
+            this.messages.push({
+              role: 'tool',
+              parts: [
+                { text: response.text ?? '' },
+                { text: JSON.stringify(toolResult) }
+              ]
+            });
+            this.isLoading.set(false);
+          },
+          error: error => {
             this.messages.push({
               role: 'model',
               parts: [{ text: 'Error calling tool: ' + error }]
             });
-          }, () => {
             this.isLoading.set(false);
-          });
-        } else {
-          this.messages.push({
-            role: 'model',
-            parts: [{ text: response.text ?? 'No response from model.' }]
-          });
-          this.isLoading.set(false);
-        }
-      })
-      .catch((error: unknown) => {
-        console.error('Chat error:', error);
+          }
+        })
+      }
+      else {
         this.messages.push({
           role: 'model',
-          parts: [{ text: 'Sorry, I encountered an error. Please try again.' }]
+          parts: [{ text: response.text ?? 'No response from model.' }]
         });
         this.isLoading.set(false);
+      }
+    })
+    .catch((error: unknown) => {
+      console.error('Chat error:', error);
+      this.messages.push({
+        role: 'model',
+        parts: [{ text: 'Sorry, I encountered an error. Please try again.' }]
       });
-    }
-    else {
-      debugger;
-      const toolObservable = this.toolCallHandler.handleToolCalls([{name: "get_person_list"}])
-      debugger;
-          toolObservable.subscribe(toolResult => {
-            debugger;
-            
-              this.messages.push({
-                role: 'tool',
-                parts: [
-                  { text:  '' },
-                  { text: JSON.stringify(toolResult) }
-                ]
-              });
-           
-          }, error => {
-            this.messages.push({
-              role: 'model',
-              parts: [{ text: 'Error calling tool: ' + error }]
-            });
-          }, () => {
-            this.isLoading.set(false);
-          });
-    }
+     
+    });    
     
   }
 
